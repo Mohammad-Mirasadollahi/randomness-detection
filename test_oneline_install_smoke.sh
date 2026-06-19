@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Smoke test for the one-line install command:
-#   curl -fsSL https://raw.githubusercontent.com/YOUR_ORG/randomness_detection/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/Mohammad-Mirasadollahi/randomness-detection/main/install.sh | bash
 #
 # Locally simulates the pipe with a file:// git clone (no GitHub required).
 set -euo pipefail

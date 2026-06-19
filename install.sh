@@ -2,12 +2,12 @@
 # Randomness Detection — automated install, bootstrap, and server startup.
 set -euo pipefail
 
-# One-line install (after publishing to GitHub):
-#   curl -fsSL https://raw.githubusercontent.com/YOUR_ORG/randomness_detection/main/install.sh | bash
+# One-line install:
+#   curl -fsSL https://raw.githubusercontent.com/Mohammad-Mirasadollahi/randomness-detection/main/install.sh | bash
 # Override clone target:
-#   RANDOMNESS_REPO_URL=https://github.com/YOUR_ORG/randomness_detection.git bash
+#   RANDOMNESS_REPO_URL=https://github.com/Mohammad-Mirasadollahi/randomness-detection.git bash
 #   RANDOMNESS_INSTALL_DIR=$HOME/randomness_detection bash
-DEFAULT_REPO_URL="${RANDOMNESS_REPO_URL:-https://github.com/randomness-detection/randomness_detection.git}"
+DEFAULT_REPO_URL="${RANDOMNESS_REPO_URL:-https://github.com/Mohammad-Mirasadollahi/randomness-detection.git}"
 DEFAULT_INSTALL_DIR="${RANDOMNESS_INSTALL_DIR:-${HOME}/randomness_detection}"
 
 ensure_project_root() {
@@ -90,13 +90,12 @@ WHAT THIS SCRIPT DOES
  ONE-LINE INSTALL (recommended)
 --------------------------------------------------------------------------------
 
-  curl -fsSL https://raw.githubusercontent.com/YOUR_ORG/randomness_detection/main/install.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/Mohammad-Mirasadollahi/randomness-detection/main/install.sh | bash
 
-  Custom repo/path:
+  Custom install directory:
 
-    RANDOMNESS_REPO_URL=https://github.com/you/randomness_detection.git \
     RANDOMNESS_INSTALL_DIR=$HOME/randomness_detection \
-      curl -fsSL https://raw.githubusercontent.com/you/randomness_detection/main/install.sh | bash
+      curl -fsSL https://raw.githubusercontent.com/Mohammad-Mirasadollahi/randomness-detection/main/install.sh | bash
 
   Already cloned? Single command (no prompts):
 

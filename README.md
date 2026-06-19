@@ -5,10 +5,10 @@ Detect how random a string looks on a **1–100 scale** (higher = more random). 
 ## One-line install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_ORG/randomness_detection/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Mohammad-Mirasadollahi/randomness-detection/main/install.sh | bash
 ```
 
-Replace `YOUR_ORG` with your GitHub username/org after publishing. The script clones the repo, installs dependencies, trains the model, and starts the API on **all network interfaces** (`0.0.0.0:8765`) with **open CORS** so any client can connect.
+The script clones the repo, installs dependencies, trains the model, and starts the API on **all network interfaces** (`0.0.0.0:8765`) with **open CORS** so any client can connect.
 
 Already cloned?
 
