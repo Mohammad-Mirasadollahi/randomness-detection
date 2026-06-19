@@ -9,12 +9,16 @@ All tests are **real integration tests** — no mocks, no fake data. They use th
 
 | Script | What it tests |
 |--------|---------------|
+| `test_quality_benchmark.py` | Detection quality vs baselines (+ **lrd_hybrid**) |
+| `test_robustness.py` | Hand-curated real-world stress test (production) |
+| `test_research_hybrid.py` | LRD-Hybrid: smoke, quality, robustness, dictionary-DGA |
+| `research_benchmark.py` | LRD-Hybrid ablation vs production |
+| `test_real_world_data.py` | Real Tranco + malware DGA datasets |
 | `test_exclude.py` | Exclusion rules, wildcards, score cache, API |
 | `test_real_parallel.py` | Real corpus words, parallel API load, CPU usage |
 | `test_cpu_full.py` | Training (50% CPU), inference, API CPU verification |
 | `test_benchmark.py` | Real throughput benchmark (CLI, pool, exclude, API) |
-| `test_quality_benchmark.py` | Detection quality vs freq/entropy/compression baselines |
-| `run_real_tests.py` | Runs all tests sequentially |
+| `run_real_tests.py` | Runs exclude + parallel + cpu_full sequentially |
 
 ## Prerequisites
 
@@ -128,7 +132,15 @@ See [Benchmarks in README](README.md#benchmarks) for reference numbers on a 48-c
 PYTHONPATH=. .venv/bin/python test_quality_benchmark.py
 ```
 
-Compares **randomness_detection** against freq, entropy, compression, avg3, max3, and the external tools **Mark Baggett freq.py** (git clone), **Fourmilab ent** (`apt install ent`), and a standalone DEFLATE CLI. Each method gets its own threshold tuned on a calibration split; metrics are on held-out test data. Writes `quality_benchmark_results.json`. Expected: `QUALITY CHECK: PASS`
+Compares **randomness_detection** and **lrd_hybrid** against freq, entropy, compression, avg3, max3, and the external tools **Mark Baggett freq.py** (git clone), **Fourmilab ent** (`apt install ent`), and a standalone DEFLATE CLI. Each method gets its own threshold tuned on a calibration split; metrics are on held-out test data. Writes `quality_benchmark_results.json`.
+
+Expected: `QUALITY CHECK: PASS` and `HYBRID CHECK: PASS`
+
+| Method | F1 | ROC-AUC |
+|--------|-----|---------|
+| lrd_hybrid | 1.000 | 1.000 |
+| randomness_detection | 1.000 | 1.000 |
+| freqpy | 0.987 | 0.999 |
 
 ### Robustness stress test (anti-band-aid guardrail)
 
@@ -137,6 +149,23 @@ PYTHONPATH=. .venv/bin/python test_robustness.py
 ```
 
 Hand-curated **real-world** strings that are deliberately **not** produced by the training generator, so the result cannot be gamed by training-data tricks. It verifies the model generalizes — real identifiers, brands, hyphenated phrases, and digit-suffixed names must stay `natural`; UUIDs, SHAs, base64, API keys, and DGA-style labels must be flagged `random`. Expected: `ROBUSTNESS: PASS` (core_natural FP ≤ 10%, clear_random FN ≤ 5%). Short out-of-dictionary brands and concatenated word-salad are reported as diagnostics only.
+
+| Model | core_natural FP | clear_random FN |
+|-------|-----------------|-----------------|
+| Production | 8% | 0% |
+| LRD-Hybrid | **5%** | 0% |
+
+### LRD-Hybrid integration test (research)
+
+```bash
+PYTHONPATH=. .venv/bin/python research_train.py --verbose
+PYTHONPATH=. .venv/bin/python test_research_hybrid.py
+PYTHONPATH=. .venv/bin/python research_benchmark.py --quick
+```
+
+Trains the research ensemble (character LM + PMI + gradient boosting), then runs smoke, robustness, quality hold-out, and dictionary-DGA checks in one script. Ablation benchmark compares full Hybrid vs variants without LM, PMI, or lexical features. Writes `research_benchmark_results.json`. Expected: `RESEARCH HYBRID TEST: PASS` and `RESEARCH BENCHMARK: PASS`.
+
+See [LRD-Hybrid Research Model](research-lrd-hybrid.md) for measured numbers and module layout.
 
 ### Real-world public-dataset test (production use case)
 
@@ -185,6 +214,9 @@ Tests write logs to the project root:
 
 | File | Content |
 |------|---------|
+| `quality_benchmark_results.json` | Quality benchmark (product + lrd_hybrid + baselines) |
+| `research_benchmark_results.json` | LRD-Hybrid ablation study |
+| `benchmark_results.json` | Throughput benchmark |
 | `exclude_test_run.log` | Latest exclusion test output |
 | `all_real_tests.log` | Full test suite output |
 | `real_parallel_test.log` | Parallel test output |

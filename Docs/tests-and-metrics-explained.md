@@ -93,15 +93,17 @@ In tests we often treat **score ≥ 50** as “random” for pass/fail counting.
 3. Reports **F1**, **ROC-AUC**, FPR, FNR on the test split only.
 4. Compares against **freqpy**, **ent**, **deflate_cli**, and internal signals.
 
-**Pass:** `QUALITY CHECK: PASS` — product F1 beats all baselines and ROC-AUC ≥ 0.95.
+**Pass:** `QUALITY CHECK: PASS` — product F1 beats all baselines and ROC-AUC ≥ 0.95.  
+Also prints `HYBRID CHECK: PASS` when `lrd_hybrid` F1 ≥ product and ROC-AUC ≥ 0.95.
 
-**Example README numbers:**
+**Example numbers (1,821 test strings):**
 
-| Method | F1 | ROC-AUC |
-|--------|-----|---------|
-| randomness_detection | 1.000 | 1.000 |
-| freqpy (external) | 0.986 | 0.999 |
-| ent alone | 0.756 | 0.739 |
+| Method | F1 | ROC-AUC | FPR | FNR |
+|--------|-----|---------|-----|-----|
+| **lrd_hybrid** | **1.000** | **1.000** | 0% | 0% |
+| **randomness_detection** | **1.000** | **1.000** | 0% | 0% |
+| freqpy (external) | 0.987 | 0.999 | 1.3% | 1.6% |
+| ent (external) | 0.762 | 0.748 | 63.9% | 8.7% |
 
 ---
 
@@ -122,7 +124,35 @@ In tests we often treat **score ≥ 50** as “random” for pass/fail counting.
 
 **Pass:** `ROBUSTNESS: PASS`
 
-**Example README numbers:** core_natural FP **8%**, clear_random FN **0%**
+**Example numbers:** production core_natural FP **8%**, LRD-Hybrid **5%**; clear_random FN **0%** for both.
+
+---
+
+### LRD-Hybrid integration test
+
+**Script:** `test_research_hybrid.py`
+
+**Question:** Does the research ensemble pass the same quality protocol **and** improve on robustness / dictionary-DGA?
+
+**Four layers in one run:**
+
+1. Fixed-string smoke (hello, UUID, word-salad)
+2. Robustness buckets (same as `test_robustness.py`)
+3. Quality hold-out (same as `test_quality_benchmark.py`)
+4. Dictionary-DGA recall on 4+ word salad strings
+
+**Pass:** `RESEARCH HYBRID TEST: PASS`
+
+| Check | Criterion |
+|-------|-----------|
+| Smoke | No FP/FN on fixed samples |
+| Robustness | FP ≤ 10%, FN ≤ 5% |
+| Quality | Hybrid F1 ≥ production, AUC ≥ 0.95 |
+| Dictionary-DGA | Recall ≥ 75% on 4+ word salad |
+
+**Train first:** `PYTHONPATH=. .venv/bin/python research_train.py`
+
+**Ablation benchmark:** `research_benchmark.py` — compares full Hybrid vs no-LM, no-PMI, etc.
 
 ---
 
@@ -171,10 +201,10 @@ In tests we often treat **score ≥ 50** as “random” for pass/fail counting.
 
 | Script | What it verifies |
 |--------|------------------|
-| Script | What it verifies |
-|--------|------------------|
 | `test_research_hybrid.py` | LRD-Hybrid: smoke, quality hold-out, robustness, dictionary-DGA |
+| `research_benchmark.py` | Ablation study: Hybrid variants vs production |
 | `test_exclude.py` | Exclusion rules (domain/suffix/exact), score cache, live API |
+| `test_real_parallel.py` | Parallel API load, CPU usage, real corpus words |
 | `test_cpu_full.py` | Training/inference/API under sustained CPU load |
 | `run_real_tests.py` | Runs exclude + parallel + cpu_full sequentially |
 | `validate_and_train.py` | Full validate → train → score pipeline |
@@ -187,6 +217,7 @@ In tests we often treat **score ≥ 50** as “random” for pass/fail counting.
 | Your goal | Look at |
 |-----------|---------|
 | “Is the algorithm good vs alternatives?” | **F1**, **ROC-AUC** in `test_quality_benchmark.py` |
+| “How does LRD-Hybrid compare?” | `test_research_hybrid.py`, `research_benchmark.py` |
 | “Will it flag my real code/words wrongly?” | **FPR** in `test_robustness.py` (`core_natural`) |
 | “Will random/malware slip through?” | **FNR** in robustness; **DGA recall** in real-world test |
 | “Is it fast enough?” | **throughput**, **p50** in `test_benchmark.py` |
@@ -207,7 +238,10 @@ PYTHONPATH=. .venv/bin/python test_robustness.py
 PYTHONPATH=. .venv/bin/python test_real_world_data.py
 PYTHONPATH=. .venv/bin/python test_benchmark.py
 
+# LRD-Hybrid (research — train once, then test)
+PYTHONPATH=. .venv/bin/python research_train.py --verbose
 PYTHONPATH=. .venv/bin/python test_research_hybrid.py
+PYTHONPATH=. .venv/bin/python research_benchmark.py --quick
 
 # Full integration suite
 PYTHONPATH=. .venv/bin/python run_real_tests.py

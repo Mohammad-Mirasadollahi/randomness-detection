@@ -45,12 +45,15 @@ PYTHONPATH=. .venv/bin/python test_quality_benchmark.py
 
 | Method | Source | Accuracy | F1 | ROC-AUC | FPR on natural | FNR on random | Threshold |
 |--------|--------|----------|-----|---------|----------------|---------------|-----------|
-| **randomness_detection** | product | **100.0%** | **1.000** | **1.000** | **0.1%** | **0.0%** | 23 |
-| freqpy (Mark Baggett) | external | 98.5% | 0.986 | 0.999 | 1.3% | 1.7% | 95 |
-| freq (internal bigram) | internal | 98.4% | 0.986 | 0.999 | 2.7% | 0.8% | 94 |
-| avg3 (mean of 3 signals) | internal | 95.8% | 0.964 | 0.990 | 6.9% | 2.1% | 97 |
-| ent (Fourmilab CLI) | external | 66.1% | 0.756 | 0.739 | 68.1% | 8.0% | 35 |
-| deflate_cli / entropy / compression alone | — | ~57% | ~0.726 | ~0.50 | 100% | 0% | — |
+| **lrd_hybrid** | research | **100.0%** | **1.000** | **1.000** | **0.0%** | **0.0%** | 19 |
+| **randomness_detection** | product | **100.0%** | **1.000** | **1.000** | **0.0%** | **0.0%** | 61 |
+| freqpy (Mark Baggett) | external | 98.5% | 0.987 | 0.999 | 1.3% | 1.6% | 95 |
+| freq (internal bigram) | internal | 98.7% | 0.986 | 0.999 | 2.7% | 0.8% | 94 |
+| avg3 (mean of 3 signals) | internal | 95.7% | 0.962 | 0.990 | 6.9% | 2.4% | 97 |
+| ent (Fourmilab CLI) | external | 67.6% | 0.762 | 0.748 | 63.9% | 8.7% | 36 |
+| deflate_cli / entropy / compression alone | — | ~57% | ~0.726 | ~0.50 | ~100% | ~0% | — |
+
+Both **product** and **LRD-Hybrid** score perfectly on this synthetic hold-out. The research model’s gains appear on robustness (lower FP) and dictionary-DGA strings — see [LRD-Hybrid Research Model](research-lrd-hybrid.md).
 
 Entropy, compression, and standalone DEFLATE cannot separate short natural English from random strings (scores overlap ~97–100). **ent** alone is also weak on short strings. Frequency-based methods work better but still miss more naturals than **randomness_detection**.
 
@@ -68,12 +71,12 @@ This is validated by an **independent, hand-curated stress test** whose data is 
 PYTHONPATH=. .venv/bin/python test_robustness.py
 ```
 
-| Bucket | Metric | Result |
-|--------|--------|--------|
-| core_natural (words, identifiers, phrases, digit-names) | false-positive rate | **8%** |
-| clear_random (UUIDs, SHAs, base64, API keys, DGA) | false-negative rate | **0%** |
+| Bucket | Metric | Production | LRD-Hybrid |
+|--------|--------|------------|------------|
+| core_natural (words, identifiers, phrases, digit-names) | false-positive rate | **8%** | **5%** |
+| clear_random (UUIDs, SHAs, base64, API keys, DGA) | false-negative rate | **0%** | **0%** |
 
-Across the redesign the real-world false-positive rate fell **21% → 15% → 8%** while held-out FN stayed at **0%** — generalization improving from principled data changes, not test tuning.
+Across the redesign the production false-positive rate fell **21% → 15% → 8%** while held-out FN stayed at **0%**. LRD-Hybrid further reduces FP to **5%** on the same curated set.
 
 **Honest limitations** (reported as diagnostics, not gamed away): short out-of-dictionary brand/jargon tokens (`nvidia`, `figma`, `nginx`) are *fundamentally* hard — they are not reliably separable from structure alone and would require a named-entity/brand list (memorization). The `word_count` signal now catches concatenated dictionary-word salad, but this is a genuine trade-off: human-chosen 4-word passphrases (`correcthorsebatterystaple`) and 4-word phrases (`the-quick-brown-fox`) are structurally identical to 4-word dictionary-DGA and therefore lean `random` — correct for a security/randomness detector, borderline as "natural." Under production thresholds (`natural ≤ 30`, `likely_random ≥ 60`) most of these land in the `uncertain` band rather than a hard misclassification.
 
@@ -96,6 +99,38 @@ PYTHONPATH=. .venv/bin/python test_real_world_data.py
 | Top-list "legit" contamination, flagged by independent freqpy | ~16% |
 
 The top-domain "legit" label is intrinsically noisy: traffic-ranked lists contain many machine-generated labels (CDN nodes, hashes, telemetry). The **independent** Mark Baggett freqpy tool flags ~16% of the legit sample as random, confirming the model is correct on most of its raw "false positives." After freqpy de-noising, legit vs random-char DGA separates at **ROC-AUC 0.966**. The `word_count` feature lifted dictionary-DGA recall from a near-zero structural ceiling (~1–7%) to **42–65%** by learning that 4+ concatenated words is machine-like; the residual miss (4-word salads overlapping real short compounds) is an inherent ambiguity, reported not hidden.
+
+### LRD-Hybrid — research model benchmarks
+
+Optional research ensemble (character LM + PMI + gradient boosting). **Not** wired into the production API — train and score separately. Full guide: [LRD-Hybrid Research Model](research-lrd-hybrid.md).
+
+```bash
+PYTHONPATH=. .venv/bin/python research_train.py --verbose
+PYTHONPATH=. .venv/bin/python test_research_hybrid.py
+PYTHONPATH=. .venv/bin/python research_benchmark.py
+```
+
+**Where Hybrid improves over production** (same test protocols, measured on this repo):
+
+| Benchmark | Production | LRD-Hybrid | Notes |
+|-----------|------------|------------|-------|
+| Quality hold-out F1 | 1.000 | 1.000 | Both at ceiling (1,821 strings) |
+| Robustness FP | 8% | **5%** | Hand-curated naturals (`test_robustness.py`) |
+| Dictionary-DGA (4+ words) | ~75% | **100%** | Curated salad strings (`test_research_hybrid.py`) |
+| Ablation F1 | 0.999 | **1.000** | `research_benchmark.py` |
+
+**Ablation** (remove one feature group at a time — all stay at F1 1.000 except `statistical_only` at 0.999):
+
+| Variant | F1 | ROC-AUC |
+|---------|-----|---------|
+| lrd_hybrid_full | 1.000 | 1.000 |
+| lrd_hybrid_no_lm | 1.000 | 1.000 |
+| lrd_hybrid_no_pmi | 1.000 | 1.000 |
+| lrd_hybrid_no_lexical | 1.000 | 1.000 |
+| lrd_hybrid_statistical_only | 0.999 | 1.000 |
+| production_lr | 0.999 | 1.000 |
+
+**Known limit:** 3-word dictionary salad (e.g. `boxcarmittenglow`) — diagnostic only, not pass/fail.
 
 ### Throughput (speed)
 
@@ -144,6 +179,8 @@ The scorer combines several signals:
 
 A **logistic regression ensemble** with Platt calibration merges these into a single **1–100 score**.
 
+**Research extension:** [LRD-Hybrid](research-lrd-hybrid.md) adds character n-gram perplexity, word PMI, and a gradient-boosted ensemble for paper-grade benchmarks.
+
 ## Typical Workflow
 
 ```bash
@@ -172,14 +209,19 @@ randomness_detection/
 ├── randomness_detection/       # Python package
 │   ├── api/                 # FastAPI app
 │   ├── exclude/             # Fast exclusion + score cache
+│   ├── research/            # LRD-Hybrid (LM + PMI + gradient boosting)
 │   ├── scorer.py            # Core scoring API
 │   ├── bootstrap.py         # Auto training pipeline
 │   ├── inference_pool.py    # Parallel API inference
 │   └── parallel.py          # Training parallelism
 ├── Docs/                    # This documentation
 ├── test_*.py                # Real integration tests
+├── research_train.py        # Train LRD-Hybrid
+├── research_benchmark.py    # Ablation benchmark
+├── research_score.py        # Score with LRD-Hybrid CLI
 ├── test_benchmark.py        # Real throughput benchmark
-├── test_quality_benchmark.py  # Detection quality vs baselines
+├── test_quality_benchmark.py  # Detection quality vs baselines (+ lrd_hybrid)
+├── test_research_hybrid.py  # LRD-Hybrid integration tests
 └── requirements.txt
 ```
 
