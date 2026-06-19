@@ -56,6 +56,7 @@ FREQPY_TABLE = BENCHMARK_TOOLS / "markbaggett.freq"
 
 METHOD_SPECS: tuple[tuple[str, str, str], ...] = (
     ("randomness_detection", "product", "Production ensemble (logistic regression + calibration)"),
+    ("lrd_hybrid", "research", "LRD-Hybrid (LM + PMI + HistGradientBoosting)"),
     ("freqpy", "external", "Mark Baggett freq.py — https://github.com/MarkBaggett/freq"),
     ("ent", "external", "Fourmilab ent — apt package, Shannon entropy CLI"),
     ("deflate_cli", "external", "Standalone DEFLATE ratio CLI (benchmark_tools/deflate_score.py)"),
@@ -315,11 +316,26 @@ def deflate_cli_randomness_score(text: str, deflate_cli: Path) -> float:
 class MethodScorer:
     def __init__(self, cache_dir: Path, tools: ExternalTools) -> None:
         self.tools = tools
+        self.cache_dir = cache_dir
         self.scorer = Scorer(cache_dir=cache_dir, auto_bootstrap=False)
         self.freq_counter = self.scorer._freq_counter
         if self.freq_counter is None:
             raise RuntimeError("Freq counter not loaded")
         self._freqpy = load_freqpy_counter()
+        self._hybrid_scorer = None
+
+    def _hybrid(self):
+        if self._hybrid_scorer is None:
+            from randomness_detection.research.hybrid_bootstrap import is_hybrid_bootstrapped
+            from randomness_detection.research.hybrid_scorer import HybridScorer
+
+            if not is_hybrid_bootstrapped(self.cache_dir):
+                from randomness_detection.research.hybrid_bootstrap import bootstrap_hybrid
+
+                print("[benchmark] Training LRD-Hybrid artifacts (first run) …")
+                bootstrap_hybrid(self.cache_dir, verbose=True)
+            self._hybrid_scorer = HybridScorer(self.cache_dir, auto_bootstrap=False)
+        return self._hybrid_scorer
 
     def score(self, method: str, text: str) -> float:
         from randomness_detection.features import breakdown_scores, extract_features
@@ -337,6 +353,9 @@ class MethodScorer:
 
         if method == "randomness_detection":
             return float(self.scorer.score(text).score)
+
+        if method == "lrd_hybrid":
+            return float(self._hybrid().score(text).score)
 
         features = extract_features(text, self.freq_counter)
         breakdown = breakdown_scores(features)
@@ -558,6 +577,17 @@ def main() -> int:
         f"QUALITY CHECK: PASS — randomness_detection F1={product.f1:.3f}, "
         f"ROC-AUC={product.roc_auc:.3f}, beats all baselines"
     )
+
+    hybrid = next((row for row in results if row.method == "lrd_hybrid"), None)
+    if hybrid is not None:
+        hybrid_ok = hybrid.f1 >= product.f1 and hybrid.roc_auc >= 0.95
+        print(
+            f"HYBRID CHECK: {'PASS' if hybrid_ok else 'FAIL'} — lrd_hybrid F1={hybrid.f1:.3f}, "
+            f"ROC-AUC={hybrid.roc_auc:.3f} (expect F1>={product.f1:.3f}, ROC-AUC>=0.95)"
+        )
+        if not hybrid_ok:
+            return 1
+
     return 0
 
 

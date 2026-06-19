@@ -20,6 +20,7 @@ English documentation for the **randomness_detection** package — a modular sys
 | [Training & Bootstrap](training-and-bootstrap.md) | Corpus, training pipeline, cache layout |
 | [Testing](testing.md) | Real integration tests (no mocks) |
 | [Tests & Metrics Explained](tests-and-metrics-explained.md) | Plain-language guide: what each test and metric means (F1, ROC-AUC, FP/FN, …) |
+| [LRD-Hybrid Research Model](research-lrd-hybrid.md) | Paper-grade hybrid detector (LM + PMI + gradient boosting) |
 | [Benchmark Methodology](benchmark-methodology.md) | How algorithm quality is measured across all benchmarks |
 | [Benchmarks](#benchmarks) | Real throughput numbers (this page) |
 

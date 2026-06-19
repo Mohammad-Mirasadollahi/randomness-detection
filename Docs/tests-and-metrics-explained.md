@@ -171,8 +171,10 @@ In tests we often treat **score ≥ 50** as “random” for pass/fail counting.
 
 | Script | What it verifies |
 |--------|------------------|
+| Script | What it verifies |
+|--------|------------------|
+| `test_research_hybrid.py` | LRD-Hybrid: smoke, quality hold-out, robustness, dictionary-DGA |
 | `test_exclude.py` | Exclusion rules (domain/suffix/exact), score cache, live API |
-| `test_real_parallel.py` | Parallel API load, CPU usage, real corpus words |
 | `test_cpu_full.py` | Training/inference/API under sustained CPU load |
 | `run_real_tests.py` | Runs exclude + parallel + cpu_full sequentially |
 | `validate_and_train.py` | Full validate → train → score pipeline |
@@ -204,6 +206,8 @@ PYTHONPATH=. .venv/bin/python test_quality_benchmark.py
 PYTHONPATH=. .venv/bin/python test_robustness.py
 PYTHONPATH=. .venv/bin/python test_real_world_data.py
 PYTHONPATH=. .venv/bin/python test_benchmark.py
+
+PYTHONPATH=. .venv/bin/python test_research_hybrid.py
 
 # Full integration suite
 PYTHONPATH=. .venv/bin/python run_real_tests.py

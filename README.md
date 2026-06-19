@@ -24,6 +24,8 @@ RANDOMNESS_HOST=127.0.0.1                         # localhost only
 
 Full documentation: [Docs/README.md](Docs/README.md)
 
+**Research model (paper-grade):** [LRD-Hybrid](Docs/research-lrd-hybrid.md) — LM + PMI + gradient boosting with ablation benchmark.
+
 ## Command line
 
 `install.sh` puts a `randomness-detection` command on your `PATH` (works from any
