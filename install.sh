@@ -104,7 +104,6 @@ WHAT THIS SCRIPT DOES
   Restrict network access later in .env (then restart):
 
     RANDOMNESS_HOST=127.0.0.1              # localhost only
-    RANDOMNESS_ALLOWED_HOSTS=api.example.com
 
 --------------------------------------------------------------------------------
  QUICK START (local clone)
@@ -265,7 +264,6 @@ WHAT THIS SCRIPT DOES
 
     RANDOMNESS_API_KEY=...          Secret for API auth (keep private)
     RANDOMNESS_HOST=0.0.0.0         Bind address (all interfaces by default)
-    RANDOMNESS_ALLOWED_HOSTS=        Optional Host-header allowlist (comma-separated)
 
   Standard API key commands:
 
@@ -597,7 +595,6 @@ RANDOMNESS_API_KEY=${api_key}
 # 0.0.0.0 = all interfaces | 127.0.0.1 = localhost only
 RANDOMNESS_HOST=${HOST}
 RANDOMNESS_PORT=${PORT}
-# Optional Host allowlist: RANDOMNESS_ALLOWED_HOSTS=api.example.com,localhost
 
 # --- Model cache ---
 RANDOMNESS_CACHE_DIR=${ROOT_DIR}/.cache

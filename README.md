@@ -20,7 +20,6 @@ Already cloned?
 
 ```bash
 RANDOMNESS_HOST=127.0.0.1                         # localhost only
-RANDOMNESS_ALLOWED_HOSTS=api.example.com            # Host header allowlist
 ```
 
 Full documentation: [Docs/README.md](Docs/README.md)
@@ -56,7 +55,9 @@ Open a new terminal after install, or run once: `. ~/.config/randomness_detectio
 
 ## Benchmarks (real, no mocks)
 
-Quality is measured at four independent layers (synthetic comparison, curated real-world stress test, large public datasets, and throughput). For the full methodology — datasets, fair-comparison protocol, metrics, and pass criteria — see [Benchmark Methodology](Docs/benchmark-methodology.md).
+Quality is measured at four independent layers (synthetic comparison, curated real-world stress test, large public datasets, and throughput).  
+**New to F1, ROC-AUC, FP/FN?** See [Tests & Metrics Explained](Docs/tests-and-metrics-explained.md).  
+Full methodology: [Benchmark Methodology](Docs/benchmark-methodology.md).
 
 ### Quality — real comparison (calibrated thresholds)
 

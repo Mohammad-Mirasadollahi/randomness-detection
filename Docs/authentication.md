@@ -111,15 +111,7 @@ Auth module failed to initialize.
 1. **Constant-time comparison** — uses `secrets.compare_digest()` to prevent timing side-channels
 2. **Minimum key length** — 32 characters enforced at startup
 3. **HTTPS** — terminate TLS at a reverse proxy (nginx, Caddy) in production
-4. **Host filtering** — optional `RANDOMNESS_ALLOWED_HOSTS` env var
-5. **CORS** — all browser origins are allowed (`Access-Control-Allow-Origin: *`)
-
-## Optional Hardening
-
-```bash
-# Restrict allowed Host headers
-export RANDOMNESS_ALLOWED_HOSTS="api.example.com,localhost"
-```
+4. **CORS** — all browser origins are allowed (`Access-Control-Allow-Origin: *`)
 
 ## Server Startup Errors
 

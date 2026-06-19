@@ -10,7 +10,6 @@ from fastapi import Depends, FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .. import __version__
 from ..config import DEFAULT_CACHE_DIR
@@ -116,13 +115,6 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
     )
-
-    allowed_hosts = os.environ.get("RANDOMNESS_ALLOWED_HOSTS", "").strip()
-    if allowed_hosts:
-        application.add_middleware(
-            TrustedHostMiddleware,
-            allowed_hosts=[host.strip() for host in allowed_hosts.split(",") if host.strip()],
-        )
 
     application.add_middleware(
         CORSMiddleware,

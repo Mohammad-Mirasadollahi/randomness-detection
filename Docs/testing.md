@@ -2,9 +2,8 @@
 
 All tests are **real integration tests** — no mocks, no fake data. They use the trained model, real English corpus, live API server, and cryptographic random tokens.
 
-> For a detailed explanation of **how algorithm quality is measured** (the four-layer
-> evaluation strategy, fair-comparison protocol, datasets, metrics, and pass criteria
-> for each benchmark), see [Benchmark Methodology](benchmark-methodology.md).
+> **Plain-language guide:** [Tests & Metrics Explained](tests-and-metrics-explained.md) — what F1, ROC-AUC, FP/FN, and each test script mean.  
+> **Technical protocol:** [Benchmark Methodology](benchmark-methodology.md) — datasets, fair-comparison protocol, pass criteria.
 
 ## Test Suite
 

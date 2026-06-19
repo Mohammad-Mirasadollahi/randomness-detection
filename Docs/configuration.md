@@ -30,7 +30,6 @@ python -m randomness_detection.api_server --host 0.0.0.0 --port 8765 --workers 2
 |----------|---------|-------------|
 | `RANDOMNESS_API_KEY` | *(required)* | API key (min 32 chars) |
 | `RANDOMNESS_ALLOW_NO_AUTH` | `false` | Disable auth (dev only) |
-| `RANDOMNESS_ALLOWED_HOSTS` | *(empty)* | Comma-separated allowed Host headers |
 
 ## Parallel Processing
 
@@ -76,7 +75,6 @@ RANDOMNESS_API_KEY="your-64-char-secret-key-here"
 RANDOMNESS_HOST=0.0.0.0
 RANDOMNESS_PORT=8765
 RANDOMNESS_UVICORN_WORKERS=2
-RANDOMNESS_ALLOWED_HOSTS=api.example.com
 
 # Cache
 RANDOMNESS_CACHE_DIR=/var/lib/randomness_detection

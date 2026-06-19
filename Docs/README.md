@@ -19,6 +19,7 @@ English documentation for the **randomness_detection** package — a modular sys
 | [Configuration](configuration.md) | Environment variables and defaults |
 | [Training & Bootstrap](training-and-bootstrap.md) | Corpus, training pipeline, cache layout |
 | [Testing](testing.md) | Real integration tests (no mocks) |
+| [Tests & Metrics Explained](tests-and-metrics-explained.md) | Plain-language guide: what each test and metric means (F1, ROC-AUC, FP/FN, …) |
 | [Benchmark Methodology](benchmark-methodology.md) | How algorithm quality is measured across all benchmarks |
 | [Benchmarks](#benchmarks) | Real throughput numbers (this page) |
 
