@@ -1,0 +1,126 @@
+# =============================================================================
+# Randomness Detection — gitignore
+# Safe to push to GitHub: secrets, local caches, IDE/AI tooling excluded.
+# =============================================================================
+
+# --- Python -------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+*.manifest
+*.spec
+
+# --- Virtualenv ---------------------------------------------------------------
+.venv/
+venv/
+ENV/
+env/
+
+# --- Secrets & environment (NEVER commit) -------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.json
+secrets/
+
+# --- Runtime / install artifacts ----------------------------------------------
+.run/
+*.pid
+
+# --- Model cache & local databases --------------------------------------------
+.cache/
+.cache_*/
+.cache_smoke_train/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# --- Logs & benchmark output --------------------------------------------------
+*.log
+install.log
+benchmark_run.log
+benchmark_results.json
+quality_benchmark_run.log
+quality_benchmark_results.json
+
+# --- Downloaded benchmark tools (cloned externally) ---------------------------
+.benchmark_tools/
+
+# --- Cursor IDE / AI (do not commit any Cursor project files) -----------------
+.cursor/
+**/.cursor/
+.cursor/**
+.cursorrules
+.cursorignore
+.cursor-settings
+.cursorindexingignore
+*.cursor.md
+.cursor/plans/
+.cursor/rules/
+.cursor/skills/
+.cursor/agents/
+.cursor/mcp.json
+.cursor/hooks/
+.cursor/hooks.json
+.cursor/environment.json
+
+# --- Other IDEs & editors -----------------------------------------------------
+.idea/
+.vscode/
+*.code-workspace
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# --- OS junk ------------------------------------------------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+desktop.ini
+ehthumbs.db
+Icon?
+
+# --- Jupyter ------------------------------------------------------------------
+.ipynb_checkpoints/
+
+# --- Test / lint / coverage caches --------------------------------------------
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.hypothesis/
+
+# --- Package managers ---------------------------------------------------------
+.uv/
+pip-wheel-metadata/
+pip-log.txt
+
+# --- Misc local / temp --------------------------------------------------------
+tmp/
+temp/
+*.tmp
+*.bak
+*.orig

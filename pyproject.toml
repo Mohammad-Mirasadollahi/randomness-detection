@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "randomness-detection"
+version = "1.0.0"
+description = "Detect how random a string looks (1-100) via frequency, entropy, compression, and lexical structure."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "scikit-learn>=1.3.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.0.0",
+]
+
+[project.scripts]
+randomness-detection = "randomness_detection.__main__:main"
+randomness-detection-server = "randomness_detection.api_server:main"
+
+[tool.setuptools.packages.find]
+include = ["randomness_detection*"]
