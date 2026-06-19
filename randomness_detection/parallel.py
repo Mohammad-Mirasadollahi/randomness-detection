@@ -6,6 +6,7 @@ import multiprocessing as mp
 import os
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from pathlib import Path
+from pathlib import Path
 from typing import Callable, Literal, TypeVar
 
 from .config import PARALLEL_BACKEND
@@ -252,6 +253,43 @@ def _extract_chunk(args: tuple[list[str], str]) -> list[list[float]]:
     counter = FreqCounter()
     counter.load(freq_path)
     return [extract_features(text, counter).as_list() for text in texts]
+
+
+def _extract_ensemble_chunk_vectors(args: tuple[list[str], str]):
+    texts, cache_dir = args
+    configure_worker_env()
+    from .bootstrap import load_freq_counter, load_language_model, load_pmi_model
+    from .ensemble_features import extract_ensemble_features
+
+    freq = load_freq_counter(cache_dir)
+    lm = load_language_model(cache_dir)
+    pmi = load_pmi_model(cache_dir)
+    return [extract_ensemble_features(text, freq, lm, pmi) for text in texts]
+
+
+def extract_ensemble_features_parallel(
+    texts: list[str],
+    cache_dir: str | Path,
+    *,
+    cpu_fraction: float = 0.5,
+    chunksize: int = 64,
+) -> list:
+    cache_dir = Path(cache_dir)
+    workers = _ACTIVE_PROCESS_WORKERS or _ACTIVE_THREAD_WORKERS or worker_count(cpu_fraction)
+    if workers <= 1 or len(texts) <= 1:
+        from .bootstrap import load_freq_counter, load_language_model, load_pmi_model
+        from .ensemble_features import extract_ensemble_features
+
+        freq = load_freq_counter(cache_dir)
+        lm = load_language_model(cache_dir)
+        pmi = load_pmi_model(cache_dir)
+        return [extract_ensemble_features(text, freq, lm, pmi) for text in texts]
+
+    chunk_size = max(chunksize, max(1, len(texts) // (workers * 4)))
+    chunks = [texts[i : i + chunk_size] for i in range(0, len(texts), chunk_size)]
+    jobs = [(chunk, str(cache_dir)) for chunk in chunks]
+    parts = _map(_extract_ensemble_chunk_vectors, jobs, workers=workers, chunksize=1)
+    return [row for part in parts for row in part]
 
 
 def extract_features_parallel(

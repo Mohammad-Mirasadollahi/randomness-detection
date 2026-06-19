@@ -10,7 +10,7 @@ from typing import TextIO
 class BootstrapProgress:
     """Step timer with live stderr logs for install and CLI bootstrap."""
 
-    TOTAL_STEPS = 6
+    TOTAL_STEPS = 8
 
     def __init__(self, *, enabled: bool = True, stream: TextIO | None = None) -> None:
         self.enabled = enabled

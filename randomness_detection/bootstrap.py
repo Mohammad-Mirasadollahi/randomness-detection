@@ -1,4 +1,4 @@
-"""Bootstrap: download english words, build freq table, train ensemble."""
+"""Bootstrap: download corpus, build freq table, LM, PMI, and train ensemble."""
 
 from __future__ import annotations
 
@@ -13,15 +13,26 @@ from .config import (
     FREQ_MAX_WORDS,
     FREQ_MIN_WORD_LENGTH,
     FREQ_TABLE_NAME,
+    LM_MODEL_NAME,
     METADATA_NAME,
     NATURAL_REAL_WORD_RATIO,
+    PMI_MODEL_NAME,
     TRAIN_SAMPLES_PER_CLASS,
     WORD_SOURCES,
 )
 from .corpora import filter_words_for_freq, filter_words_for_training, load_merged_words
 from .corpus_validator import validate_words
+from .ensemble_features import extract_ensemble_features
 from .freq_model import FreqCounter
-from .parallel import start_parallel, stop_parallel, shutdown_joblib, tally_words_parallel, worker_count
+from .ngram_lm import CharacterNgramLM
+from .parallel import (
+    extract_ensemble_features_parallel,
+    start_parallel,
+    stop_parallel,
+    shutdown_joblib,
+    tally_words_parallel,
+)
+from .pmi_model import WordPMIModel
 from .synthetic import build_labeled_dataset
 from .trainer import EnsembleModel, train_ensemble
 
@@ -49,6 +60,8 @@ def is_bootstrapped(cache_dir: str | Path) -> bool:
     cache_dir = Path(cache_dir)
     if not (
         (cache_dir / FREQ_TABLE_NAME).exists()
+        and (cache_dir / LM_MODEL_NAME).exists()
+        and (cache_dir / PMI_MODEL_NAME).exists()
         and (cache_dir / ENSEMBLE_MODEL_NAME).exists()
         and (cache_dir / METADATA_NAME).exists()
     ):
@@ -124,8 +137,14 @@ def bootstrap(
         )
         progress.step_done(f"{freq_words_used:,} words tallied")
 
+        progress.step(4, f"Training character language model ({len(training_words):,} words)")
+        language_model = CharacterNgramLM(order=5, discount=0.75)
+        language_model.train(training_words)
+        language_model.save(cache_dir / LM_MODEL_NAME)
+        progress.step_done("language model saved")
+
         progress.step(
-            4,
+            5,
             f"Generating training samples ({samples_per_class:,} natural + "
             f"{samples_per_class:,} synthetic random)",
         )
@@ -137,20 +156,34 @@ def bootstrap(
         )
         progress.step_done(f"{len(texts):,} labeled samples ready")
 
-        progress.step(5, "Extracting features and training ensemble (GridSearchCV + calibration)")
-        freq_path = cache_dir / FREQ_TABLE_NAME
-        model, metrics = train_ensemble(
+        natural_texts = [text for text, label in zip(texts, labels) if label == 0]
+        freq_counter = load_freq_counter(cache_dir)
+        lexicon = freq_counter.lexicon
+
+        progress.step(6, "Fitting word PMI model from natural compounds")
+        pmi_model = WordPMIModel()
+        pmi_model.train_from_words(training_words)
+        pmi_model.train_bigrams_from_texts(natural_texts, lexicon)
+        pmi_model.save(cache_dir / PMI_MODEL_NAME)
+        progress.step_done("PMI model saved")
+
+        progress.step(7, "Extracting ensemble features and training classifier")
+        feature_rows = extract_ensemble_features_parallel(
             texts,
+            cache_dir,
+            cpu_fraction=CPU_FRACTION,
+        )
+        model, metrics = train_ensemble(
+            feature_rows,
             labels,
-            freq_path,
             cpu_fraction=CPU_FRACTION,
         )
         if verbose:
             progress.detail(
                 f"accuracy={metrics.get('accuracy', 0):.3f}  "
+                f"f1={metrics.get('f1', 0):.3f}  "
                 f"auc={metrics.get('auc', 0):.3f}  "
-                f"brier={metrics.get('brier_score', 0):.4f}  "
-                f"C={metrics.get('best_C', '?')}"
+                f"brier={metrics.get('brier_score', 0):.4f}"
             )
         progress.step_done("ensemble trained")
     finally:
@@ -158,7 +191,7 @@ def bootstrap(
 
     shutdown_joblib()
 
-    progress.step(6, "Saving model, frequency table, and metadata")
+    progress.step(8, "Saving model artifacts and metadata")
     model.save(cache_dir / ENSEMBLE_MODEL_NAME)
 
     metadata = {
@@ -180,6 +213,15 @@ def bootstrap(
         "cpu_fraction": CPU_FRACTION,
         "corpus_validation": corpus_report.to_dict(),
         "metrics": metrics,
+        "signals": [
+            "bigram_frequency",
+            "shannon_entropy",
+            "deflate_compression",
+            "lexical_segmentation",
+            "character_language_model",
+            "word_pmi",
+        ],
+        "ensemble": "HistGradientBoosting + calibration",
     }
     (cache_dir / METADATA_NAME).write_text(
         json.dumps(metadata, indent=2),
@@ -200,6 +242,24 @@ def load_freq_counter(cache_dir: str | Path) -> FreqCounter:
     counter = FreqCounter()
     counter.load(freq_path)
     return counter
+
+
+def load_language_model(cache_dir: str | Path) -> CharacterNgramLM:
+    cache_dir = Path(cache_dir)
+    path = cache_dir / LM_MODEL_NAME
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Language model not found at {path}. Run bootstrap first."
+        )
+    return CharacterNgramLM.load(path)
+
+
+def load_pmi_model(cache_dir: str | Path) -> WordPMIModel:
+    cache_dir = Path(cache_dir)
+    path = cache_dir / PMI_MODEL_NAME
+    if not path.exists():
+        raise FileNotFoundError(f"PMI model not found at {path}. Run bootstrap first.")
+    return WordPMIModel.load(path)
 
 
 def load_ensemble(cache_dir: str | Path) -> EnsembleModel:

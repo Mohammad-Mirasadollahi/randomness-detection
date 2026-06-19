@@ -1,12 +1,12 @@
-"""Extended feature vector for LRD-Hybrid (statistical + lexical + LM + PMI)."""
+"""Extended feature vector for the randomness detection ensemble."""
 
 from __future__ import annotations
 
 import math
 from dataclasses import asdict, dataclass
 
-from ..features import FeatureVector, extract_features
-from ..freq_model import FreqCounter
+from .features import FeatureVector, extract_features
+from .freq_model import FreqCounter
 from .ngram_lm import CharacterNgramLM
 from .pmi_model import WordPMIModel
 
@@ -51,8 +51,8 @@ FEATURE_NAMES: tuple[str, ...] = tuple(
 
 
 @dataclass
-class HybridFeatureVector:
-    """All features used by the research-grade hybrid ensemble."""
+class EnsembleFeatureVector:
+    """All features used by the production ensemble."""
 
     # --- statistical (production signals) ---
     freq_randomness: float
@@ -121,13 +121,13 @@ def _normalize_lm_signals(text: str, lm: CharacterNgramLM) -> tuple[float, float
     return ce_norm, log_prob_norm, ppl_norm
 
 
-def extract_hybrid_features(
+def extract_ensemble_features(
     text: str,
     freq_counter: FreqCounter,
     language_model: CharacterNgramLM,
     pmi_model: WordPMIModel,
-) -> HybridFeatureVector:
-    """Combine production features with LM perplexity and segmentation PMI."""
+) -> EnsembleFeatureVector:
+    """Combine statistical, lexical, LM, and PMI signals."""
     base: FeatureVector = extract_features(text, freq_counter)
     lexicon = getattr(freq_counter, "lexicon", frozenset())
 
@@ -139,7 +139,7 @@ def extract_hybrid_features(
     pmi_min_norm = min(max((8.0 - pmi_min) / 16.0, 0.0), 1.0)
     pair_norm = min(pair_count / 8.0, 1.0)
 
-    return HybridFeatureVector(
+    return EnsembleFeatureVector(
         freq_randomness=base.freq_randomness / 100.0,
         freq_avg_natural=base.freq_avg_natural / 100.0,
         freq_total_natural=base.freq_total_natural / 100.0,
@@ -164,8 +164,8 @@ def extract_hybrid_features(
     )
 
 
-def breakdown_hybrid(features: HybridFeatureVector) -> dict[str, int]:
-    """Human-readable component scores (1–100) for API / paper figures."""
+def breakdown_ensemble(features: EnsembleFeatureVector) -> dict[str, int]:
+    """Human-readable component scores (1–100) for API responses."""
     return {
         "freq": int(round(features.freq_randomness * 100)),
         "entropy": int(round(features.entropy_normalized * 100)),

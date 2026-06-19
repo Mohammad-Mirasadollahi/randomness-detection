@@ -1,4 +1,4 @@
-"""Atomic pickle I/O for research artifacts."""
+"""Atomic pickle I/O for model artifacts."""
 
 from __future__ import annotations
 

@@ -50,6 +50,8 @@ WORD_SOURCES: list[WordSource] = [
 
 FREQ_TABLE_NAME = "english.freq"
 ENSEMBLE_MODEL_NAME = "ensemble.pkl"
+LM_MODEL_NAME = "language_model.pkl"
+PMI_MODEL_NAME = "word_pmi.pkl"
 METADATA_NAME = "metadata.json"
 
 # Training defaults (safe pipeline: english words + synthetic random only)
@@ -57,7 +59,7 @@ TRAIN_SAMPLES_PER_CLASS = 50_000
 FREQ_MIN_WORD_LENGTH = 2
 FREQ_MAX_WORDS = 0  # 0 = use all eligible words
 NATURAL_REAL_WORD_RATIO = 0.7
-BOOTSTRAP_VERSION = 18
+BOOTSTRAP_VERSION = 19
 CPU_FRACTION = 0.5
 
 # Inference (API) defaults — use maximum allocated CPU unless overridden

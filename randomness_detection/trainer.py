@@ -1,4 +1,4 @@
-"""Logistic regression ensemble with CV tuning and probability calibration."""
+"""Train and persist the gradient-boosted ensemble."""
 
 from __future__ import annotations
 
@@ -7,63 +7,86 @@ from pathlib import Path
 
 import numpy as np
 from sklearn.calibration import CalibratedClassifierCV
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, brier_score_loss, roc_auc_score
+from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.metrics import (
+    accuracy_score,
+    brier_score_loss,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from .config import CPU_FRACTION
-from .parallel import extract_features_parallel, worker_count
+from .ensemble_features import FEATURE_GROUPS, EnsembleFeatureVector
+from .io_utils import atomic_pickle_dump
+from .parallel import shutdown_joblib, worker_count
 
 
 class EnsembleModel:
-    def __init__(self, pipeline: Pipeline) -> None:
-        self.pipeline = pipeline
+    """Calibrated gradient-boosting classifier over ensemble features."""
 
-    def predict_random_probability(self, features: list[float]) -> float:
-        probability = self.pipeline.predict_proba([features])[0][1]
+    def __init__(
+        self,
+        pipeline: Pipeline,
+        *,
+        active_groups: frozenset[str] | None = None,
+        feature_names: tuple[str, ...] | None = None,
+    ) -> None:
+        self.pipeline = pipeline
+        self.active_groups = active_groups or frozenset(FEATURE_GROUPS.keys())
+        self.feature_names = feature_names
+
+    def predict_random_probability(self, features: EnsembleFeatureVector) -> float:
+        vector = features.as_list(active_groups=self.active_groups)
+        probability = self.pipeline.predict_proba([vector])[0][1]
         return float(probability)
 
     def save(self, path: Path) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("wb") as handle:
-            pickle.dump(self.pipeline, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        payload = {
+            "pipeline": self.pipeline,
+            "active_groups": sorted(self.active_groups),
+            "feature_names": self.feature_names,
+        }
+        atomic_pickle_dump(payload, path)
 
     @classmethod
     def load(cls, path: Path) -> "EnsembleModel":
         with path.open("rb") as handle:
-            pipeline = pickle.load(handle)
-        return cls(pipeline)
+            payload = pickle.load(handle)
+        if isinstance(payload, Pipeline):
+            return cls(payload)
+        return cls(
+            pipeline=payload["pipeline"],
+            active_groups=frozenset(payload.get("active_groups", FEATURE_GROUPS.keys())),
+            feature_names=payload.get("feature_names"),
+        )
 
 
 def train_ensemble(
-    texts: list[str],
+    feature_rows: list[EnsembleFeatureVector],
     labels: list[int],
-    freq_path: Path,
     *,
+    active_groups: frozenset[str] | None = None,
     test_size: float = 0.2,
     random_state: int = 42,
     cpu_fraction: float = CPU_FRACTION,
 ) -> tuple[EnsembleModel, dict[str, float | int | str]]:
-    workers = worker_count(cpu_fraction)
-    feature_matrix = np.array(
-        extract_features_parallel(
-            texts,
-            str(freq_path),
-            cpu_fraction=cpu_fraction,
-        ),
+    groups = active_groups or frozenset(FEATURE_GROUPS.keys())
+    matrix = np.array(
+        [row.as_list(active_groups=groups) for row in feature_rows],
         dtype=np.float64,
     )
     labels_array = np.array(labels)
 
-    # Release any worker slots before sklearn spawns its own joblib pool.
-    from .parallel import shutdown_joblib, stop_parallel
-
-    stop_parallel()
+    shutdown_joblib()
+    workers = worker_count(cpu_fraction)
 
     x_train, x_test, y_train, y_test = train_test_split(
-        feature_matrix,
+        matrix,
         labels_array,
         test_size=test_size,
         random_state=random_state,
@@ -77,10 +100,12 @@ def train_ensemble(
             ("scaler", StandardScaler()),
             (
                 "classifier",
-                LogisticRegression(
-                    max_iter=2000,
+                HistGradientBoostingClassifier(
+                    max_iter=300,
+                    learning_rate=0.08,
+                    max_depth=6,
+                    min_samples_leaf=20,
                     class_weight="balanced",
-                    solver="lbfgs",
                     random_state=random_state,
                 ),
             ),
@@ -88,7 +113,8 @@ def train_ensemble(
     )
 
     param_grid = {
-        "classifier__C": [0.01, 0.1, 1.0, 10.0],
+        "classifier__max_depth": [4, 6, 8],
+        "classifier__learning_rate": [0.05, 0.08, 0.12],
     }
     search = GridSearchCV(
         base_pipeline,
@@ -99,7 +125,7 @@ def train_ensemble(
         refit=True,
     )
     search.fit(x_train, y_train)
-    best_c = search.best_params_["classifier__C"]
+    best_params = search.best_params_
 
     calibrated = Pipeline(
         steps=[
@@ -107,11 +133,12 @@ def train_ensemble(
             (
                 "classifier",
                 CalibratedClassifierCV(
-                    LogisticRegression(
-                        C=best_c,
-                        max_iter=2000,
+                    HistGradientBoostingClassifier(
+                        max_iter=300,
+                        learning_rate=best_params["classifier__learning_rate"],
+                        max_depth=best_params["classifier__max_depth"],
+                        min_samples_leaf=20,
                         class_weight="balanced",
-                        solver="lbfgs",
                         random_state=random_state,
                     ),
                     cv=cv,
@@ -125,18 +152,24 @@ def train_ensemble(
     shutdown_joblib()
 
     test_probabilities = calibrated.predict_proba(x_test)[:, 1]
-    test_predictions = calibrated.predict(x_test)
+    test_predictions = (test_probabilities >= 0.5).astype(int)
 
     metrics: dict[str, float | int | str] = {
         "accuracy": float(accuracy_score(y_test, test_predictions)),
+        "f1": float(f1_score(y_test, test_predictions)),
+        "precision": float(precision_score(y_test, test_predictions, zero_division=0)),
+        "recall": float(recall_score(y_test, test_predictions, zero_division=0)),
         "auc": float(roc_auc_score(y_test, test_probabilities)),
         "brier_score": float(brier_score_loss(y_test, test_probabilities)),
-        "best_C": float(best_c),
+        "best_max_depth": int(best_params["classifier__max_depth"]),
+        "best_learning_rate": float(best_params["classifier__learning_rate"]),
         "calibration": "sigmoid",
+        "ensemble": "HistGradientBoosting",
         "train_samples": float(len(x_train)),
         "test_samples": float(len(x_test)),
+        "feature_groups": ",".join(sorted(groups)),
         "cpu_workers": workers,
         "cpu_fraction": cpu_fraction,
     }
 
-    return EnsembleModel(calibrated), metrics
+    return EnsembleModel(calibrated, active_groups=groups), metrics
